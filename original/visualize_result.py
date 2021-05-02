@@ -1,4 +1,3 @@
-from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
 import numpy as np
@@ -42,23 +41,16 @@ label = labels[train_size:]  # int(train_size * 0.9)
 label = np.array(label)
 
 fea = TSNE(n_components=2).fit_transform(fea)
-pdf = PdfPages(data_set + '_gcn_doc_test.pdf')
 cls = np.unique(label)
 
 # cls=range(10)
 fea_num = [fea[label == i] for i in cls]
+plt.figure(figsize=(20, 10))
 for i, f in enumerate(fea_num):
     if cls[i] in range(10):
         plt.scatter(f[:, 0], f[:, 1], label=cls[i], marker='+')
     else:
         plt.scatter(f[:, 0], f[:, 1], label=cls[i])
-plt.legend(ncol=5,
-           loc='upper center',
-           bbox_to_anchor=(0.48, -0.08),
-           fontsize=11)
-# plt.ylim([-20,35])
-# plt.title(md_file)
-plt.tight_layout()
-pdf.savefig()
+plt.legend(ncol=5, loc='lower left', bbox_to_anchor=(0, 1.02), fontsize=11)
+plt.savefig("result.png")
 plt.show()
-pdf.close()
