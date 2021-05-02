@@ -1,5 +1,6 @@
 import numpy as np
 from math import log
+from collections import Counter
 
 
 class WordGraphBuilder:
@@ -8,7 +9,7 @@ class WordGraphBuilder:
         self.word_id_map = None
         self.word_doc_freq = None
         self.word_window_freq = None
-        self.word_pair_count = None
+        self.word_pair_counter = None
         self.num_window = 0
 
     def build_graph(self, doc_words_list, window_size, train_size):
@@ -49,14 +50,11 @@ class WordGraphBuilder:
         print("Building vocabulary")
         # find out the frequency of the word appears in different doc
         # word doc freq stores how many times this word appeared in different docs
-        self.word_doc_freq = {}
+        self.word_doc_freq = Counter()
         for doc_words in doc_words_list:
             doc_unique_words = set(doc_words)
             for word in doc_unique_words:
-                if word in self.word_doc_freq:
-                    self.word_doc_freq[word] = self.word_doc_freq[word] + 1
-                else:
-                    self.word_doc_freq[word] = 1
+                self.word_doc_freq.update(word)
 
         # word id map is to convert the word into it's index in vocab
         self.word_id_map = {}
@@ -65,40 +63,40 @@ class WordGraphBuilder:
             self.word_id_map[word] = len(self.vocab)
             self.vocab.append(word)
 
-    def _add_window(self, window):
-        self.num_window += 1
+    def _update_window_freq(self, window):
         appeared = set()
         for word in window:
             if word in appeared:
                 continue
-            if word in self.word_window_freq:
-                self.word_window_freq[word] += 1
-            else:
-                self.word_window_freq[word] = 1
+            self.word_window_freq.update(word)
             appeared.add(word)
 
+    def _update_word_pair_counter(self, window):
+        # lookup ids for words in this window
+        word_ids = []
+        for word in window:
+            word_ids.append(self.word_id_map[word])
+
+        # for each pair of words in this window, update the counter
         for i in range(1, len(window)):
             for j in range(0, i):
-                word_i_id = self.word_id_map[window[i]]
-                word_j_id = self.word_id_map[window[j]]
+                word_i_id = word_ids[i]
+                word_j_id = word_ids[j]
                 if word_i_id == word_j_id:
                     continue
-                word_id_tuple = (word_i_id, word_j_id)
-                if word_id_tuple in self.word_pair_count:
-                    self.word_pair_count[word_id_tuple] += 1
-                else:
-                    self.word_pair_count[word_id_tuple] = 1
-                # add the reverse order
-                word_id_tuple = (word_j_id, word_i_id)
-                if word_id_tuple in self.word_pair_count:
-                    self.word_pair_count[word_id_tuple] += 1
-                else:
-                    self.word_pair_count[word_id_tuple] = 1
+                self.word_pair_counter.update([(word_i_id, word_j_id),
+                                               (word_j_id, word_i_id)])
+
+    def _add_window(self, window):
+        self.num_window += 1
+
+        self._update_window_freq(window)
+        self._update_word_pair_counter(window)
 
     def _compute_word_frequency(self, doc_words_list, window_size):
         print("Computing word frequency")
-        self.word_pair_count = {}
-        self.word_window_freq = {}
+        self.word_pair_counter = Counter()
+        self.word_window_freq = Counter()
 
         # word co-occurrence with context windows
         self.num_window = 0
@@ -108,6 +106,7 @@ class WordGraphBuilder:
             if words_length <= window_size:
                 self._add_window(doc_words)
                 continue
+            # sliding window
             for j in range(words_length - window_size + 1):
                 self._add_window(doc_words[j:j + window_size])
 
@@ -125,10 +124,9 @@ class WordGraphBuilder:
         vocab_size = len(self.vocab)
 
         # use window frequency to compute the weight for testing samples
-        for word_id_pair, pair_count in self.word_pair_count.items():
+        for word_id_pair, pair_count in self.word_pair_counter.items():
             pmi = self._compute_pmi(
-                self.word_pair_count[pair_count],
-                self.word_window_freq[self.vocab[word_id_pair[0]]],
+                pair_count, self.word_window_freq[self.vocab[word_id_pair[0]]],
                 self.word_window_freq[self.vocab[word_id_pair[1]]])
             if pmi <= 0:
                 continue
@@ -137,12 +135,7 @@ class WordGraphBuilder:
             weight.append(pmi)
 
         for doc_id, doc_words in enumerate(doc_words_list):
-            doc_word_freq = {}
-            for word in doc_words:
-                if word in doc_word_freq:
-                    doc_word_freq[word] += 1
-                else:
-                    doc_word_freq[word] = 1
+            doc_word_freq = Counter(doc_words)
             for word, in_doc_freq in doc_word_freq.items():
                 word_id = self.word_id_map[word]
                 if doc_id < train_size:
