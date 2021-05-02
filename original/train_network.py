@@ -2,13 +2,9 @@ from __future__ import division
 from __future__ import print_function
 
 from sklearn import metrics
-import random
-import time
 import sys
-import os
 
 import torch
-import torch.nn as nn
 
 import numpy as np
 import scipy.sparse as sparse
@@ -67,6 +63,32 @@ def print_and_save_result(embedding, train_size, test_size):
         f.write(doc_embeddings_str)
 
 
+def get_data(dataset):
+    # Load data
+    (adj, y_train, y_val, y_test, train_mask, val_mask, test_mask, train_size,
+     test_size) = utils.load_corpus(dataset)
+
+    features = sparse.identity(adj.shape[1])
+
+    # Some preprocessing
+    features = utils.preprocess_features(features)
+    support = [utils.preprocess_adj(adj)]
+
+    # Define placeholders
+    t_features = torch.from_numpy(features)
+    t_y_train = torch.from_numpy(y_train)
+    t_y_val = torch.from_numpy(y_val)
+    t_y_test = torch.from_numpy(y_test)
+    t_train_mask = torch.from_numpy(train_mask.astype(np.float32))
+
+    t_support = []
+    for i in range(len(support)):
+        t_support.append(torch.Tensor(support[i]))
+
+    return (t_features, t_y_train, t_y_val, t_y_test, t_train_mask, t_support,
+            val_mask, test_mask, train_size, test_size)
+
+
 if __name__ == "__main__":
 
     cfg = CONFIG()
@@ -82,64 +104,24 @@ if __name__ == "__main__":
     cfg.dataset = dataset
 
     # Set random seed
-    seed = random.randint(1, 200)
-    seed = 2019
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    np.random.seed(2019)
+    torch.manual_seed(2019)
 
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-
-    # Settings
-    # os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
-    # Load data
-    (adj, y_train, y_val, y_test, train_mask, val_mask, test_mask, train_size,
-     test_size) = utils.load_corpus(cfg.dataset)
-
-    embedding_size = 300
-    features = sparse.identity(adj.shape[1])
-
-    # Some preprocessing
-    features = utils.preprocess_features(features)
     if cfg.model == 'gcn':
-        support = [utils.preprocess_adj(adj)]
-        num_supports = 1
         model_func = GCN
     elif cfg.model == 'dense':
-        support = [utils.preprocess_adj(adj)]  # Not used
-        num_supports = 1
         model_func = MLP
     else:
         raise ValueError('Invalid argument for model: ' + str(cfg.model))
 
-    # Define placeholders
-    t_features = torch.from_numpy(features)
-    t_y_train = torch.from_numpy(y_train)
-    t_y_val = torch.from_numpy(y_val)
-    t_y_test = torch.from_numpy(y_test)
-    t_train_mask = torch.from_numpy(train_mask.astype(np.float32))
+    (t_features, t_y_train, t_y_val, t_y_test, t_train_mask, t_support,
+     val_mask, test_mask, train_size, test_size) = get_data(cfg.dataset)
 
-    t_support = []
-    for i in range(len(support)):
-        t_support.append(torch.Tensor(support[i]))
-
-    if torch.cuda.is_available():
-        model_func = model_func.cuda()
-        t_features = t_features.cuda()
-        t_y_train = t_y_train.cuda()
-        t_y_val = t_y_val.cuda()
-        t_y_test = t_y_test.cuda()
-        t_train_mask = t_train_mask.cuda()
-        for i in range(len(support)):
-            t_support = [t.cuda() for t in t_support if True]
-
-    model = model_func(input_dim=features.shape[0],
+    model = model_func(input_dim=t_features.shape[0],
                        support=t_support,
-                       num_classes=y_train.shape[1])
+                       num_classes=t_y_train.shape[1])
 
     trainer = GraphNetworkTrainer(model, cfg)
-
     trainer.train(t_features, t_y_train, t_train_mask, t_y_val, val_mask)
 
     # Testing
