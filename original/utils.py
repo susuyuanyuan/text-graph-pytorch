@@ -3,6 +3,8 @@ import pickle as pkl
 import scipy.sparse as sp
 import sys
 import re
+import os
+from folder_structure import FolderStructure
 
 
 def parse_index_file(filename):
@@ -20,7 +22,7 @@ def sample_mask(idx, l):
     return np.array(mask, dtype=np.bool)
 
 
-def load_corpus(dataset_str):
+def load_data(dataset_str):
     """
     Loads input corpus from gcn/data directory
     ind.dataset_str.y => the one-hot labels of the labeled training docs as numpy.ndarray object;
@@ -34,11 +36,11 @@ def load_corpus(dataset_str):
     :param dataset_str: Dataset name
     :return: All data input files loaded (as well the training/test data).
     """
-
+    fs = FolderStructure(dataset_str)
     names = ['y', 'ty', 'ally', 'adj']
     objects = []
-    for i in range(len(names)):
-        with open("./data/ind.{}.{}".format(dataset_str, names[i]), 'rb') as f:
+    for name in names:
+        with open(fs.get_pickle_file(name), 'rb') as f:
             if sys.version_info > (3, 0):
                 objects.append(pkl.load(f, encoding='latin1'))
             else:
@@ -48,8 +50,7 @@ def load_corpus(dataset_str):
 
     labels = np.vstack((ally, ty))
 
-    train_idx_orig = parse_index_file(
-        "./data/{}.train.index".format(dataset_str))
+    train_idx_orig = parse_index_file(fs.get_train_index_file())
     train_size = len(train_idx_orig)
 
     val_size = train_size - y.shape[0]

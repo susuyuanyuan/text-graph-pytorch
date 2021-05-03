@@ -2,18 +2,27 @@ from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
 import numpy as np
 import os
+from folder_structure import FolderStructure
+import argparse
 
-data_set = '20ng'  # 20ng R8 R52 ohsumed mr
-data_path = './data'
+arg = argparse.ArgumentParser()
+arg.add_argument(
+    "dataset_name",
+    default="",
+    help="The dataset name, please pick one from 20ng, R8, R52, ohsumed, mr")
+arg.parse_args()
 
-f = open(os.path.join(data_path, data_set + '.train.index'), 'r')
-lines = f.readlines()
-f.close()
+dataset = arg.dataset_name
+
+fs = FolderStructure(dataset)
+
+with open(fs.get_train_index_file(), 'r') as f:
+    lines = f.readlines()
+
 train_size = len(lines)
 
-f = open(os.path.join(data_path, data_set + '_shuffle.txt'), 'r')
-lines = f.readlines()
-f.close()
+with open(fs.get_shuffled_doc_names_file(), 'r') as f:
+    lines = f.readlines()
 
 target_names = set()
 labels = []
@@ -25,7 +34,7 @@ for line in lines:
 
 target_names = list(target_names)
 
-f = open(os.path.join(data_path, data_set + '_doc_vectors.txt'), 'r')
+f = open(fs.get_doc_vector_file(), 'r')
 lines = f.readlines()
 f.close()
 

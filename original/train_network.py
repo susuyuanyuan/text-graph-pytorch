@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from sklearn import metrics
 import sys
+import os
 
 import torch
 
@@ -15,12 +16,16 @@ from mlp import MLP
 
 from config import CONFIG
 from graph_network_trainer import GraphNetworkTrainer
+from folder_structure import FolderStructure
+
+import argparse
 
 
-def print_and_save_result(embedding, train_size, test_size):
-    word_embeddings = embedding[train_size:adj.shape[0] - test_size]
+def print_and_save_result(dataset, embedding, adj_shape_0, train_size,
+                          test_size):
+    word_embeddings = embedding[train_size:adj_shape_0 - test_size]
     train_doc_embeddings = embedding[:train_size]  # include val docs
-    test_doc_embeddings = embedding[adj.shape[0] - test_size:]
+    test_doc_embeddings = embedding[adj_shape_0 - test_size:]
 
     print('Embeddings:')
     print('\rWord_embeddings:' + str(len(word_embeddings)))
@@ -29,7 +34,8 @@ def print_and_save_result(embedding, train_size, test_size):
     print('\rWord_embeddings:')
     print(word_embeddings)
 
-    with open('./data/corpus/' + dataset + '_vocab.txt', 'r') as f:
+    fs = FolderStructure(dataset)
+    with open(fs.get_vocab_file(), 'r') as f:
         words = f.readlines()
 
     vocab_size = len(words)
@@ -41,7 +47,7 @@ def print_and_save_result(embedding, train_size, test_size):
         word_vectors.append(word + ' ' + word_vector_str)
 
     word_embeddings_str = '\n'.join(word_vectors)
-    with open('./data/' + dataset + '_word_vectors.txt', 'w') as f:
+    with open(fs.get_word_vector_file(), 'w') as f:
         f.write(word_embeddings_str)
 
     doc_vectors = []
@@ -59,14 +65,14 @@ def print_and_save_result(embedding, train_size, test_size):
         doc_id += 1
 
     doc_embeddings_str = '\n'.join(doc_vectors)
-    with open('./data/' + dataset + '_doc_vectors.txt', 'w') as f:
+    with open(fs.get_doc_vector_file(), 'w') as f:
         f.write(doc_embeddings_str)
 
 
 def get_data(dataset):
-    # Load data
+    # Load output_data
     (adj, y_train, y_val, y_test, train_mask, val_mask, test_mask, train_size,
-     test_size) = utils.load_corpus(dataset)
+     test_size) = utils.load_data(dataset)
 
     features = sparse.identity(adj.shape[1])
 
@@ -96,9 +102,17 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit("Use: python train.py <dataset>")
 
-    datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
-    dataset = sys.argv[1]
+    arg = argparse.ArgumentParser()
+    arg.add_argument(
+        "dataset_name",
+        default="",
+        help="The dataset name, please pick one from 20ng, R8, R52, ohsumed, mr"
+    )
+    arg.parse_args()
 
+    dataset = arg.dataset_name
+
+    datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
     if dataset not in datasets:
         sys.exit("wrong dataset name")
     cfg.dataset = dataset
@@ -153,4 +167,5 @@ if __name__ == "__main__":
 
     # doc and word embeddings
     embedding = model.layer1.embedding.numpy()
-    print_and_save_result(embedding, train_size, test_size)
+    print_and_save_result(dataset, embedding, t_support.shape[0], train_size,
+                          test_size)

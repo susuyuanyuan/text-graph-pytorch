@@ -1,23 +1,25 @@
-import os
 import random
+import argparse
+import os
+import sys
+
 import numpy as np
 import pickle as pkl
 # import networkx as nx
 import scipy.sparse as sp
 from word_graph_builder import WordGraphBuilder
-from math import log
-
-import sys
+from folder_structure import FolderStructure
 
 
 def read_and_shuffle_dataset(dataset):
-    print("Reading data")
+    print("Reading output_data")
 
     doc_name_list = []
     doc_train_list = []
     doc_test_list = []
 
-    with open('./data/' + dataset + '.txt', 'r') as f:
+    fs = FolderStructure(dataset)
+    with open(fs.get_doc_name_file(), 'r') as f:
         lines = f.readlines()
         for line in lines:
             doc_name_list.append(line.strip())
@@ -28,7 +30,7 @@ def read_and_shuffle_dataset(dataset):
                 doc_train_list.append(line.strip())
 
     doc_content_list = []
-    with open('./data/corpus/' + dataset + '.clean.txt', 'r') as f:
+    with open(fs.get_clean_doc_words_file(), 'r') as f:
         lines = f.readlines()
         for line in lines:
             doc_content_list.append(line.strip())
@@ -43,7 +45,7 @@ def read_and_shuffle_dataset(dataset):
     # train_ids = train_ids[:int(0.2 * len(train_ids))]
 
     train_ids_str = '\n'.join(str(index) for index in train_ids)
-    with open('./data/' + dataset + '.train.index', 'w') as f:
+    with open(fs.get_train_index_file(), 'w') as f:
         f.write(train_ids_str)
 
     test_ids = []
@@ -53,7 +55,7 @@ def read_and_shuffle_dataset(dataset):
     random.shuffle(test_ids)
 
     test_ids_str = '\n'.join(str(index) for index in test_ids)
-    with open('./data/' + dataset + '.test.index', 'w') as f:
+    with open(fs.get_test_index_file(), 'w') as f:
         f.write(test_ids_str)
 
     ids = train_ids + test_ids
@@ -64,10 +66,10 @@ def read_and_shuffle_dataset(dataset):
         shuffle_doc_name_list.append(doc_name_list[int(id)])
         shuffle_doc_words_list.append(doc_content_list[int(id)])
 
-    with open('./data/' + dataset + '_shuffle.txt', 'w') as f:
+    with open(fs.get_shuffled_doc_names_file(), 'w') as f:
         f.write('\n'.join(shuffle_doc_name_list))
 
-    with open('./data/corpus/' + dataset + '_shuffle.txt', 'w') as f:
+    with open(fs.get_shuffled_doc_words_file(), 'w') as f:
         f.write('\n'.join(shuffle_doc_words_list))
 
     # split to vector
@@ -81,13 +83,18 @@ def read_and_shuffle_dataset(dataset):
 
 
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("Use: python build_graph.py <dataset>")
+    # build corpus
+    arg = argparse.ArgumentParser()
+    arg.add_argument(
+        "dataset_name",
+        default="",
+        help="The dataset name, please pick one from 20ng, R8, R52, ohsumed, mr"
+    )
+    arg.parse_args()
+
+    dataset = arg.dataset_name
 
     datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
-    # build corpus
-    dataset = sys.argv[1]
-
     if dataset not in datasets:
         sys.exit("wrong dataset name")
 
@@ -123,28 +130,30 @@ def main():
 
     print(real_train_y.shape, test_y.shape, all_y.shape)
 
-    print("Saving data to disk")
+    print("Saving output_data to disk")
     # save all the vocab to disk
-    with open('./data/corpus/' + dataset + '_vocab.txt', 'w') as f:
+    fs = FolderStructure(dataset)
+
+    with open(fs.get_vocab_file(), 'w') as f:
         f.write('\n'.join(graph_builder.vocab))
 
-    with open('./data/corpus/' + dataset + '_labels.txt', 'w') as f:
+    with open(fs.get_labels_file(), 'w') as f:
         f.write('\n'.join(label_list))
 
-    with open('./data/' + dataset + '.real_train.name', 'w') as f:
+    with open(fs.get_real_train_name(), 'w') as f:
         f.write('\n'.join(doc_name_list[:real_train_size]))
 
     # dump objects
-    with open("./data/ind.{}.real_train_y".format(dataset), 'wb') as f:
+    with open(fs.get_real_train_y_file(), 'wb') as f:
         pkl.dump(real_train_y, f)
 
-    with open("./data/ind.{}.test_y".format(dataset), 'wb') as f:
+    with open(fs.get_test_y_file(), 'wb') as f:
         pkl.dump(test_y, f)
 
-    with open("./data/ind.{}.all_y".format(dataset), 'wb') as f:
+    with open(fs.get_all_y_file(), 'wb') as f:
         pkl.dump(all_y, f)
 
-    with open("./data/ind.{}.adj".format(dataset), 'wb') as f:
+    with open(fs.get_adj_file(), 'wb') as f:
         pkl.dump(adj, f)
 
 
