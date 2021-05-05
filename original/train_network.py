@@ -21,11 +21,10 @@ from folder_structure import FolderStructure
 import argparse
 
 
-def print_and_save_result(dataset, embedding, adj_shape_0, train_size,
-                          test_size):
-    word_embeddings = embedding[train_size:adj_shape_0 - test_size]
+def print_and_save_result(dataset, embedding, all_size, train_size, test_size):
+    word_embeddings = embedding[train_size:all_size - test_size]
     train_doc_embeddings = embedding[:train_size]  # include val docs
-    test_doc_embeddings = embedding[adj_shape_0 - test_size:]
+    test_doc_embeddings = embedding[all_size - test_size:]
 
     print('Embeddings:')
     print('\rWord_embeddings:' + str(len(word_embeddings)))
@@ -108,9 +107,9 @@ if __name__ == "__main__":
         default="",
         help="The dataset name, please pick one from 20ng, R8, R52, ohsumed, mr"
     )
-    arg.parse_args()
+    args = arg.parse_args()
 
-    dataset = arg.dataset_name
+    dataset = args.dataset_name
 
     datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
     if dataset not in datasets:
@@ -167,5 +166,5 @@ if __name__ == "__main__":
 
     # doc and word embeddings
     embedding = model.layer1.embedding.numpy()
-    print_and_save_result(dataset, embedding, t_support.shape[0], train_size,
-                          test_size)
+    print_and_save_result(dataset, embedding, t_support[0].shape[0],
+                          train_size, test_size)

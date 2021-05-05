@@ -26,8 +26,8 @@ class GraphNetworkTrainer:
             acc = ((pred == torch.max(labels, 1)[1]).float() *
                    t_mask).sum().item() / t_mask.sum().item()
 
-        return loss.numpy(), acc, pred.numpy(), labels.numpy(), (time.time() -
-                                                                 t_before)
+        return (loss.numpy(), acc, pred.numpy(), labels.numpy(),
+                (time.time() - t_before))
 
     def train(self, features, y_train, train_mask, t_y_val, val_mask):
         val_losses = []

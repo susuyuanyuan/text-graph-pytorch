@@ -52,18 +52,6 @@ class FolderStructure:
     def get_real_train_name(self):
         return os.path.join(self.get_output_dir(), 'real_train_name.txt')
 
-    def get_real_train_y_file(self):
-        return os.path.join(self.get_output_dir(), "real_train_y.pickle")
-
-    def get_test_y_file(self):
-        return os.path.join(self.get_output_dir(), "test_y.pickle")
-
-    def get_all_y_file(self):
-        return os.path.join(self.get_output_dir(), "all_y.pickle")
-
-    def get_adj_file(self):
-        return os.path.join(self.get_output_dir(), "adj.pickle")
-
     def get_pickle_file(self, name):
         return os.path.join(self.get_output_dir(), name + ".pickle")
 
