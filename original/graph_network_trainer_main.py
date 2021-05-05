@@ -14,7 +14,7 @@ import utils
 from gcn import GCN
 from mlp import MLP
 
-from config import CONFIG
+from optimization_config import OptimizationConfig
 from graph_network_trainer import GraphNetworkTrainer
 from folder_structure import FolderStructure
 
@@ -95,11 +95,7 @@ def get_data(dataset):
 
 
 if __name__ == "__main__":
-
-    cfg = CONFIG()
-
-    if len(sys.argv) != 2:
-        sys.exit("Use: python train.py <dataset>")
+    config = OptimizationConfig()
 
     arg = argparse.ArgumentParser()
     arg.add_argument(
@@ -114,27 +110,27 @@ if __name__ == "__main__":
     datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
     if dataset not in datasets:
         sys.exit("wrong dataset name")
-    cfg.dataset = dataset
+    config.dataset = dataset
 
     # Set random seed
     np.random.seed(2019)
     torch.manual_seed(2019)
 
-    if cfg.model == 'gcn':
+    if config.model == 'gcn':
         model_func = GCN
-    elif cfg.model == 'dense':
+    elif config.model == 'dense':
         model_func = MLP
     else:
-        raise ValueError('Invalid argument for model: ' + str(cfg.model))
+        raise ValueError('Invalid argument for model: ' + str(config.model))
 
     (t_features, t_y_train, t_y_val, t_y_test, t_train_mask, t_support,
-     val_mask, test_mask, train_size, test_size) = get_data(cfg.dataset)
+     val_mask, test_mask, train_size, test_size) = get_data(config.dataset)
 
     model = model_func(input_dim=t_features.shape[0],
                        support=t_support,
                        num_classes=t_y_train.shape[1])
 
-    trainer = GraphNetworkTrainer(model, cfg)
+    trainer = GraphNetworkTrainer(model, config)
     trainer.train(t_features, t_y_train, t_train_mask, t_y_val, val_mask)
 
     # Testing

@@ -84,7 +84,7 @@ def main():
 
     datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
     if dataset not in datasets:
-        sys.exit("wrong dataset name")
+        raise Exception("wrong dataset name")
 
     before = time.time()
 
