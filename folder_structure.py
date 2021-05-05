@@ -6,9 +6,9 @@ class FolderStructure:
         self.dataset = dataset
         self.root_dir = root_dir
         if not os.path.exists(self.get_output_dir()):
-            os.mkdir(self.get_output_dir())
+            os.makedirs(self.get_output_dir())
         if not os.path.exists(self.get_input_dir()):
-            os.mkdir(self.get_input_dir())
+            os.makedirs(self.get_input_dir())
 
     def get_original_doc_name_file(self):
         return os.path.join(self.root_dir, 'dataset', self.dataset + '.txt')

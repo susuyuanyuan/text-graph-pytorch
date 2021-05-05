@@ -16,9 +16,9 @@ arg.add_argument(
     "dataset_name",
     default="",
     help="The dataset name, please pick one from 20ng, R8, R52, ohsumed, mr")
-arg.parse_args()
+args = arg.parse_args()
 
-dataset = arg.dataset_name
+dataset = args.dataset_name
 
 if dataset not in datasets:
     sys.exit("wrong dataset name")
