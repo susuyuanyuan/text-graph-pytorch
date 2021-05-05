@@ -30,12 +30,12 @@ class WordGraphBuilder:
         for doc_names in doc_name_list:
             label = doc_names[2]
             all_labels.append(label)
-            if not label in label_id_map:
+            if label not in label_id_map:
                 label_id_map[label] = index
                 index = index + 1
-        onehot_y = np.zeros(len(doc_name_list), len(index))
-        for label in all_labels:
-            onehot_y[label_id_map[label]] = 1
+        onehot_y = np.zeros((len(all_labels), len(label_id_map)))
+        for i, label in enumerate(all_labels):
+            onehot_y[i, label_id_map[label]] = 1
         return all_labels, onehot_y
 
     def _build_vocab(self, doc_words_list):
@@ -73,15 +73,6 @@ class WordGraphBuilder:
             self.word_window_freq[word] += 1
             appeared.add(word)
 
-    # since we know the max vocab size, we can compute the pair hash by using the max
-    def _get_pair_hash(self, id1, id2):
-        return id1 * self.vocab_size + id2
-
-    def _get_pair_value(self, hash):
-        id1 = hash / self.vocab_size
-        id2 = hash - id1 * hash
-        return int(id1), int(id2)
-
     def _update_word_pair_counter(self, window):
         # lookup ids for words in this window
         word_ids = []
@@ -91,14 +82,13 @@ class WordGraphBuilder:
         # for each pair of words in this window, update the counter
         for i in range(1, len(window)):
             for j in range(0, i):
-                word_i_id = word_ids[i]
-                word_j_id = word_ids[j]
-                if word_i_id == word_j_id:
+                id1 = word_ids[i]
+                id2 = word_ids[j]
+                if id1 == id2:
                     continue
-                self.word_pair_counter[self._get_pair_hash(
-                    word_i_id, word_j_id)] += 1
-                self.word_pair_counter[self._get_pair_hash(
-                    word_j_id, word_i_id)] += 1
+                # since we know the max vocab size, we can compute the pair hash by using the max
+                self.word_pair_counter[id1 * self.vocab_size + id2] += 1
+                self.word_pair_counter[id2 * self.vocab_size + id1] += 1
 
     def _add_window(self, window):
         self.num_window += 1
@@ -136,15 +126,16 @@ class WordGraphBuilder:
         vocab_size = len(self.vocab)
 
         # use window frequency to compute the weight for testing samples
-        for word_id_pair, pair_count in self.word_pair_counter.items():
-            word_id_i, word_id_j = self._get_pair_value(word_id_pair)
-            pmi = self._compute_pmi(
-                pair_count, self.word_window_freq[self.vocab[word_id_i]],
-                self.word_window_freq[self.vocab[word_id_j]])
+        for word_id_hash, pair_count in self.word_pair_counter.items():
+            id1 = int(word_id_hash / self.vocab_size)
+            id2 = int(word_id_hash - id1 * self.vocab_size)
+            pmi = self._compute_pmi(pair_count,
+                                    self.word_window_freq[self.vocab[id1]],
+                                    self.word_window_freq[self.vocab[id2]])
             if pmi <= 0:
                 continue
-            row.append(train_size + word_id_i)
-            col.append(train_size + word_id_j)
+            row.append(train_size + id1)
+            col.append(train_size + id2)
             weight.append(pmi)
 
         for doc_id, doc_words in enumerate(doc_words_list):

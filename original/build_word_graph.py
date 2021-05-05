@@ -9,6 +9,7 @@ import pickle as pkl
 import scipy.sparse as sp
 from word_graph_builder import WordGraphBuilder
 from folder_structure import FolderStructure
+import time
 
 
 def read_and_shuffle_dataset(dataset):
@@ -63,21 +64,8 @@ def read_and_shuffle_dataset(dataset):
     shuffle_doc_name_list = []
     shuffle_doc_words_list = []
     for id in ids:
-        shuffle_doc_name_list.append(doc_name_list[int(id)])
-        shuffle_doc_words_list.append(doc_content_list[int(id)])
-
-    with open(fs.get_shuffled_doc_names_file(), 'w') as f:
-        f.write('\n'.join(shuffle_doc_name_list))
-
-    with open(fs.get_shuffled_doc_words_file(), 'w') as f:
-        f.write('\n'.join(shuffle_doc_words_list))
-
-    # split to vector
-    for doc_name_list in shuffle_doc_name_list:
-        doc_name_list = doc_name_list.split('\t')
-
-    for doc_words_list in shuffle_doc_words_list:
-        doc_words_list = doc_words_list.split()
+        shuffle_doc_name_list.append(doc_name_list[int(id)].split('\t'))
+        shuffle_doc_words_list.append(doc_content_list[int(id)].split())
 
     return shuffle_doc_words_list, shuffle_doc_name_list, train_ids, test_ids
 
@@ -90,19 +78,22 @@ def main():
         default="",
         help="The dataset name, please pick one from 20ng, R8, R52, ohsumed, mr"
     )
-    arg.parse_args()
+    args = arg.parse_args()
 
-    dataset = arg.dataset_name
+    dataset = args.dataset_name
 
     datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
     if dataset not in datasets:
         sys.exit("wrong dataset name")
+
+    before = time.time()
 
     doc_words_list, doc_name_list, train_ids, test_ids = read_and_shuffle_dataset(
         dataset)
 
     train_size = len(train_ids)
     test_size = len(test_ids)
+
     # x: feature vectors of training docs, no initial features
     # select 90% training set
     val_size = int(0.1 * train_size)
@@ -110,7 +101,7 @@ def main():
 
     graph_builder = WordGraphBuilder()
     # word co-occurrence with context windows
-    window_size = 20
+    window_size = 3
     row, col, weight = graph_builder.build_graph(doc_words_list, window_size,
                                                  train_size)
 
@@ -119,20 +110,32 @@ def main():
 
     label_list, all_labeled_y = graph_builder.extract_label(doc_name_list)
 
-    real_train_y = all_labeled_y[:real_train_size]
+    real_train_y = all_labeled_y[:real_train_size, :]
+    test_y = all_labeled_y[train_size:train_size + test_size, :]
 
-    test_y = all_labeled_y[train_size:train_size + test_size]
-
-    all_y = all_labeled_y[train_size]
+    all_y = all_labeled_y[:train_size, :]
     # add all the vocabulary y which is all zeros
-    all_y = np.concatenate(all_y,
-                           np.zeros(len(graph_builder.vocab), all_y.shape[1]))
+    vocab_y = np.zeros((len(graph_builder.vocab), all_y.shape[1]))
+    all_y = np.concatenate((all_y, vocab_y))
 
-    print(real_train_y.shape, test_y.shape, all_y.shape)
+    print("real_train_y: ", real_train_y.shape, "test_y: ", test_y.shape,
+          "all_y:", all_y.shape, "adj:", adj.shape)
+    print("total time usage: ", time.time() - before)
 
     print("Saving output_data to disk")
-    # save all the vocab to disk
+
+    # save all the data to disk
     fs = FolderStructure(dataset)
+
+    with open(fs.get_shuffled_doc_names_file(), 'w') as f:
+        f.write('\n'.join(['\t'.join(names) for names in doc_name_list]))
+
+    with open(fs.get_real_train_name(), 'w') as f:
+        f.write('\n'.join(
+            ['\t'.join(names) for names in doc_name_list[:real_train_size]]))
+
+    with open(fs.get_shuffled_doc_words_file(), 'w') as f:
+        f.write('\n'.join([" ".join(words) for words in doc_words_list]))
 
     with open(fs.get_vocab_file(), 'w') as f:
         f.write('\n'.join(graph_builder.vocab))
@@ -140,20 +143,16 @@ def main():
     with open(fs.get_labels_file(), 'w') as f:
         f.write('\n'.join(label_list))
 
-    with open(fs.get_real_train_name(), 'w') as f:
-        f.write('\n'.join(doc_name_list[:real_train_size]))
-
-    # dump objects
-    with open(fs.get_real_train_y_file(), 'wb') as f:
+    with open(fs.get_pickle_file("y"), 'wb') as f:
         pkl.dump(real_train_y, f)
 
-    with open(fs.get_test_y_file(), 'wb') as f:
+    with open(fs.get_pickle_file("ty"), 'wb') as f:
         pkl.dump(test_y, f)
 
-    with open(fs.get_all_y_file(), 'wb') as f:
+    with open(fs.get_pickle_file("ally"), 'wb') as f:
         pkl.dump(all_y, f)
 
-    with open(fs.get_adj_file(), 'wb') as f:
+    with open(fs.get_pickle_file("adj"), 'wb') as f:
         pkl.dump(adj, f)
 
 
